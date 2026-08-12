@@ -1,4 +1,4 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyRequest, type FastifyReply } from "fastify";
 import cors from "@fastify/cors";
 import {
   mkdirSync,
@@ -12,7 +12,7 @@ import { createServer } from "node:net";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "../../..");
-const PORT = Number(process.env.PORT || 7100);
+const PORT = Number(process.env.PORT_ORCH || 7100);
 /**
  * require (default on Zerops) — Docker only
  * prefer — Docker if daemon up, else process (local convenience)
@@ -275,8 +275,8 @@ async function destroyRuntime(sandboxId: string) {
   runtimes.delete(sandboxId);
 }
 
-function mcpInternalUrl(port: number) {
-  return `http://${ADVERTISE_HOST}:${port}`;
+function mcpInternalUrl(sandboxId: string) {
+  return `http://${ADVERTISE_HOST}:${PORT}/sandboxes/${sandboxId}`;
 }
 
 const app = Fastify({ logger: true });
@@ -296,6 +296,40 @@ app.get("/health", async () => {
     root: SANDBOX_ROOT,
   };
 });
+
+app.post("/sandboxes/:id/message", handleMcpMessage);
+app.post("/sandboxes/:id/mcp/message", handleMcpMessage);
+
+async function handleMcpMessage(req: FastifyRequest, reply: FastifyReply) {
+  const { id } = req.params as { id: string };
+  const rt = runtimes.get(id);
+  if (!rt) return reply.code(404).send({ error: "sandbox_not_found" });
+
+  const token =
+    (req.headers["x-sandbox-token"] as string) ||
+    (req.query as { token?: string }).token;
+  if (token && token !== rt.token) {
+    return reply.code(401).send({ error: "unauthorized" });
+  }
+
+  try {
+    const upstream = await fetch(`http://127.0.0.1:${rt.mcpPort}/mcp/message`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-sandbox-token": rt.token,
+      },
+      body: JSON.stringify(req.body ?? {}),
+    });
+    const data = await upstream.json();
+    return reply.code(upstream.status).send(data);
+  } catch (err) {
+    return reply.code(502).send({
+      error: "sandbox_upstream_error",
+      detail: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
 
 app.post("/sandboxes", async (req, reply) => {
   const body = (req.body || {}) as {
@@ -356,7 +390,7 @@ app.post("/sandboxes", async (req, reply) => {
       sandboxId: rt.sandboxId,
       mode: rt.mode,
       mcpPort: rt.mcpPort,
-      mcpInternalUrl: mcpInternalUrl(rt.mcpPort),
+      mcpInternalUrl: mcpInternalUrl(rt.sandboxId),
       token: rt.token,
     };
   } catch (err) {
@@ -381,7 +415,7 @@ app.get("/sandboxes/:id", async (req, reply) => {
     sandboxId: rt.sandboxId,
     mode: rt.mode,
     mcpPort: rt.mcpPort,
-    mcpInternalUrl: mcpInternalUrl(rt.mcpPort),
+    mcpInternalUrl: mcpInternalUrl(rt.sandboxId),
   };
 });
 

@@ -180,7 +180,10 @@ export default function Arena() {
           .filter(Boolean)
           .join(" — ");
         if (fromJson) throw new Error(fromJson);
-        throw new Error(raw.slice(0, 200) || `Create failed (${res.status})`);
+        const cleanMsg = raw.includes("<html") || raw.includes("<body")
+          ? `Server Error (${res.status}) — Please check service health.`
+          : raw.slice(0, 180);
+        throw new Error(cleanMsg || `Create failed (${res.status})`);
       }
       const id = data.sandbox?.id;
       if (!id) throw new Error("Sandbox creation returned no ID.");

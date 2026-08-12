@@ -1,8 +1,8 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 
-const API = (process.env.API_URL || "http://127.0.0.1:3001").replace(/\/$/, "");
-const PORT = Number(process.env.PORT_GATEWAY ?? process.env.PORT ?? 3002);
+const API = (process.env.API_URL || "http://api:3001").replace(/\/$/, "");
+const PORT = Number(process.env.PORT_GATEWAY || 3002);
 
 const app = Fastify({ logger: true });
 await app.register(cors, { origin: true });

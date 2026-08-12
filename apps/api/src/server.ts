@@ -416,6 +416,6 @@ app.get("/v1/internal/sandboxes/:id/route", async (req, reply) => {
   };
 });
 
-const port = Number(process.env.PORT_API ?? process.env.PORT ?? 3001);
+const port = Number(process.env.PORT_API || 3001);
 await app.listen({ port, host: "0.0.0.0" });
 console.log(`[api] :${port}`);
