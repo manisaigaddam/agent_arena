@@ -40,16 +40,16 @@ export default function Landing() {
 
   return (
     <div className="landing">
-      {/* PullPlane-Grade Navigation */}
+      {/* PullPlane Navigation Bar */}
       <header className="landing-nav">
         <div className="brand flex items-center gap-2">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" fill="#12141c" stroke="#2e3245" strokeWidth="1.3" />
-            <circle cx="15.2" cy="12" r="3.1" fill="#8b5cf6" stroke="#12141c" strokeWidth="1.2" />
-            <circle cx="12" cy="12" r="3.1" fill="#3b82f6" stroke="#12141c" strokeWidth="1.2" />
-            <circle cx="8.8" cy="12" r="3.1" fill="#10b981" stroke="#12141c" strokeWidth="1.2" />
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" fill="#18181b" stroke="#3f3f46" strokeWidth="1.5" />
+            <circle cx="15.2" cy="12" r="3.1" fill="#a855f7" stroke="#18181b" strokeWidth="1.2" />
+            <circle cx="12" cy="12" r="3.1" fill="#3b82f6" stroke="#18181b" strokeWidth="1.2" />
+            <circle cx="8.8" cy="12" r="3.1" fill="#10b981" stroke="#18181b" strokeWidth="1.2" />
           </svg>
-          <span className="font-semibold text-white">AgentArena</span>
+          <span className="font-bold text-white text-lg">AgentArena</span>
         </div>
         <div className="flex items-center gap-3">
           <a href="#enter" className="ghost button-sm">
@@ -83,7 +83,7 @@ export default function Landing() {
           {!sentMsg ? (
             <form className="magic-form glass-card" onSubmit={(e) => void onSubmit(e)}>
               <label htmlFor="email" className="form-label">
-                Enter your work email to spin up or access your agent arena
+                Enter your email to spin up or access your workspace:
               </label>
               <div className="magic-row">
                 <input
@@ -126,7 +126,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* PullPlane-Style Production Window Preview */}
+      {/* Production Demo Window */}
       <div className="demo-window">
         <div className="demo-titlebar">
           <div className="window-dots">
@@ -134,8 +134,8 @@ export default function Landing() {
             <span className="window-dot"></span>
             <span className="window-dot"></span>
           </div>
-          <span className="text-xs font-mono text-muted">agentarena.zerops.app/sandbox/sbx_037d3c76</span>
-          <div className="flex items-center gap-1.5 text-xs text-accent">
+          <span className="text-xs font-mono text-muted">https://gateway-2e0c-3002.prg1.zerops.app/mcp/sbx_037d3c76/sse</span>
+          <div className="flex items-center gap-1.5 text-xs text-accent font-semibold">
             <span className="pulse-dot"></span>
             <span>Live Stream</span>
           </div>
@@ -159,16 +159,16 @@ export default function Landing() {
             </div>
 
             <div className="code-block font-mono text-xs text-muted mb-2">
-              <span className="text-accent">POST</span> /mcp/sbx_037d3c76/message HTTP/1.1<br />
+              <span className="text-accent font-bold">POST</span> /mcp/sbx_037d3c76/message HTTP/1.1<br />
               {"{"}"method": "tools/call", "params": {"{"}"name": "refund_payment", "arguments": {"{"}"payment_id": "pay_1"{"}"}{"}"}{"}"}<br />
-              <span className="text-accent">200 OK</span> · payment pay_1 updated status=refunded (14ms)
+              <span className="text-accent font-bold">200 OK</span> · payment pay_1 status updated to refunded (14ms)
             </div>
           </div>
 
           <div className="panel flex flex-col justify-between" style={{ margin: 0 }}>
             <div>
               <h2 className="text-xs text-muted mb-1">Defense Score</h2>
-              <div className="text-2xl font-bold text-accent">75 / 100</div>
+              <div className="text-2xl font-extrabold text-accent">75 / 100</div>
               <p className="text-xs text-muted mt-1">Prompt Injection Defended • State Mutation Verified</p>
             </div>
             <div className="pill-badge text-xs justify-center mt-3">
@@ -178,7 +178,7 @@ export default function Landing() {
         </div>
       </div>
 
-      {/* Production Grade Feature Grid */}
+      {/* Feature Grid */}
       <section className="grid-3">
         <div className="feature-card glass-card">
           <div className="feature-icon">🌐</div>
