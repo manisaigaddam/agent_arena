@@ -40,39 +40,50 @@ export default function Landing() {
 
   return (
     <div className="landing">
+      {/* PullPlane-Grade Navigation */}
       <header className="landing-nav">
         <div className="brand flex items-center gap-2">
-          <span className="brand-badge">🛡️</span>
-          <span>AgentArena</span>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" fill="#12141c" stroke="#2e3245" strokeWidth="1.3" />
+            <circle cx="15.2" cy="12" r="3.1" fill="#8b5cf6" stroke="#12141c" strokeWidth="1.2" />
+            <circle cx="12" cy="12" r="3.1" fill="#3b82f6" stroke="#12141c" strokeWidth="1.2" />
+            <circle cx="8.8" cy="12" r="3.1" fill="#10b981" stroke="#12141c" strokeWidth="1.2" />
+          </svg>
+          <span className="font-semibold text-white">AgentArena</span>
         </div>
-        <div className="nav-links">
+        <div className="flex items-center gap-3">
           <a href="#enter" className="ghost button-sm">
-            Access Console →
+            Sign In
+          </a>
+          <a href="#enter" className="primary-btn button-sm">
+            Launch Sandbox →
           </a>
         </div>
       </header>
 
+      {/* Hero Section */}
       <section className="landing-hero">
         <div className="eyebrow flex items-center justify-center gap-2">
-          <span className="pulse-dot"></span>
-          <span>Zerops PaaS Powered · Model Context Protocol (MCP)</span>
+          <div className="pill-badge">
+            <span className="pulse-dot"></span>
+            <span>Live Agent Evaluation Plane · Zerops PaaS</span>
+          </div>
         </div>
-        
+
         <h1 className="landing-title">
-          Disposable MCP Sandboxes <br />
-          <span className="accent-text">& Real-Time AI Evaluator</span>
+          Run every AI coding agent.<br />
+          <span className="accent-text">One secure evaluation plane.</span>
         </h1>
-        
+
         <p className="landing-lead">
-          Test, attack, and score tool-using AI agents in zero-risk environments.
-          Spin up synthetic worlds, connect over MCP, track live security metrics, and reset instantly.
+          Plan, run, review, and score tool-using AI agents in isolated Zerops sandboxes — from synthetic world spec to prompt injection defense.
         </p>
 
         <div className="landing-cta" id="enter">
           {!sentMsg ? (
             <form className="magic-form glass-card" onSubmit={(e) => void onSubmit(e)}>
               <label htmlFor="email" className="form-label">
-                Enter your email to launch or enter your workspace
+                Enter your work email to spin up or access your agent arena
               </label>
               <div className="magic-row">
                 <input
@@ -92,17 +103,17 @@ export default function Landing() {
             </form>
           ) : (
             <div className="magic-sent glass-card">
-              <p className="sent-title">⚡ {sentMsg}</p>
+              <p className="font-semibold text-accent mb-2">⚡ {sentMsg}</p>
               {magicUrl && (
-                <div className="magic-direct">
-                  <a href={magicUrl} className="primary-btn direct-link">
+                <div className="mt-2">
+                  <a href={magicUrl} className="primary-btn button-sm">
                     🚀 Click Here to Enter Workspace Immediately
                   </a>
                 </div>
               )}
               <button
                 type="button"
-                className="ghost mt-3"
+                className="ghost button-sm mt-3"
                 onClick={() => {
                   setSentMsg(null);
                   setMagicUrl(null);
@@ -115,26 +126,79 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="landing-features grid-3">
+      {/* PullPlane-Style Production Window Preview */}
+      <div className="demo-window">
+        <div className="demo-titlebar">
+          <div className="window-dots">
+            <span className="window-dot"></span>
+            <span className="window-dot"></span>
+            <span className="window-dot"></span>
+          </div>
+          <span className="text-xs font-mono text-muted">agentarena.zerops.app/sandbox/sbx_037d3c76</span>
+          <div className="flex items-center gap-1.5 text-xs text-accent">
+            <span className="pulse-dot"></span>
+            <span>Live Stream</span>
+          </div>
+        </div>
+
+        <div className="demo-tabs">
+          <span className="demo-tab active">🔌 MCP Connection</span>
+          <span className="demo-tab">🏆 Scorecard (75/100)</span>
+          <span className="demo-tab">📜 Trace Log</span>
+          <span className="demo-tab">📘 skill.md</span>
+        </div>
+
+        <div className="demo-body">
+          <div className="panel" style={{ margin: 0 }}>
+            <h2 className="text-xs text-muted mb-2">Connected Agents in Sandbox</h2>
+            <div className="flex flex-wrap gap-2 mb-3">
+              <span className="agent-tag claude">@claude-3.7-sonnet</span>
+              <span className="agent-tag codex">@cursor-agent</span>
+              <span className="agent-tag research">@deepseek-r1</span>
+              <span className="agent-tag eval">@evaluator</span>
+            </div>
+
+            <div className="code-block font-mono text-xs text-muted mb-2">
+              <span className="text-accent">POST</span> /mcp/sbx_037d3c76/message HTTP/1.1<br />
+              {"{"}"method": "tools/call", "params": {"{"}"name": "refund_payment", "arguments": {"{"}"payment_id": "pay_1"{"}"}{"}"}{"}"}<br />
+              <span className="text-accent">200 OK</span> · payment pay_1 updated status=refunded (14ms)
+            </div>
+          </div>
+
+          <div className="panel flex flex-col justify-between" style={{ margin: 0 }}>
+            <div>
+              <h2 className="text-xs text-muted mb-1">Defense Score</h2>
+              <div className="text-2xl font-bold text-accent">75 / 100</div>
+              <p className="text-xs text-muted mt-1">Prompt Injection Defended • State Mutation Verified</p>
+            </div>
+            <div className="pill-badge text-xs justify-center mt-3">
+              <span>Zero-Risk Sandbox</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Production Grade Feature Grid */}
+      <section className="grid-3">
         <div className="feature-card glass-card">
           <div className="feature-icon">🌐</div>
-          <h3>Synthetic World Planner</h3>
-          <p>Generate isolated relational databases, API endpoints, and seed state from natural language prompts.</p>
+          <h3>Synthetic World Engine</h3>
+          <p>Generate isolated relational state, seed data, and REST API endpoints from natural language prompts.</p>
         </div>
         <div className="feature-card glass-card">
           <div className="feature-icon">🔌</div>
-          <h3>MCP Native Integration</h3>
-          <p>Connect Cursor, Claude Desktop, LangChain, or custom agent frameworks via SSE protocol.</p>
+          <h3>MCP Protocol Native</h3>
+          <p>Connect Cursor, Claude Desktop, LangChain, or custom agent frameworks via zero-config SSE endpoints.</p>
         </div>
         <div className="feature-card glass-card">
           <div className="feature-icon">🛡️</div>
           <h3>Real-Time Security Eval</h3>
-          <p>Evaluate prompt injection resistance, state accuracy, PII privacy leakage, and tool efficiency live.</p>
+          <p>Evaluate prompt injection resistance, state mutation accuracy, and tool execution latency live.</p>
         </div>
       </section>
 
-      <footer className="landing-footer">
-        <span>AgentArena © 2026 · Built for Zerops Hackathon</span>
+      <footer className="mt-16 text-xs text-muted">
+        <span>AgentArena © 2026 · Production-Grade AI Agent Infrastructure</span>
       </footer>
     </div>
   );
