@@ -56,6 +56,14 @@ async function proxy(
 
   const upstreamCt = upstream.headers.get("content-type") || "";
   const text = await upstream.text();
+
+  if (upstream.ok) {
+    return new NextResponse(text, {
+      status: upstream.status,
+      headers: { "content-type": upstreamCt || "text/plain" },
+    });
+  }
+
   if (
     upstreamCt.includes("application/json") ||
     text.trimStart().startsWith("{") ||

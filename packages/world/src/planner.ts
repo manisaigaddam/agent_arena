@@ -27,27 +27,37 @@ Rules:
 - Output JSON only.`;
 
 export async function planWorldFromPrompt(prompt: string): Promise<WorldSpec> {
-  if (!process.env.BEDROCK_API_KEY) {
-    // Offline / missing key: fall back to enriched support template tagged with prompt
-    const base = supportRefundWorldSpec(Date.now() % 100000);
-    base.title = `Generated (offline): ${prompt.slice(0, 48)}`;
-    base.summary = `Fallback template because BEDROCK_API_KEY is unset. Prompt was: ${prompt}`;
-    return base;
+  const apiKey = (process.env.BEDROCK_API_KEY || "").trim();
+  if (!apiKey) {
+    return createFallbackWorldSpec(prompt, "Missing BEDROCK_API_KEY");
   }
 
-  const res = await callBedrock(
-    [
-      { role: "system", content: PLANNER_SYSTEM },
-      { role: "user", content: prompt },
-    ],
-    { temperature: 0.25, maxTokens: 8000 },
-  );
+  try {
+    const res = await callBedrock(
+      [
+        { role: "system", content: PLANNER_SYSTEM },
+        { role: "user", content: prompt },
+      ],
+      { temperature: 0.25, maxTokens: 8000 },
+    );
 
-  const parsed = extractJsonObject(res.content) as WorldSpec;
-  if (!parsed?.entities?.length || !parsed?.tools?.length) {
-    throw new Error("World Spec missing entities/tools");
+    const parsed = extractJsonObject(res.content) as WorldSpec;
+    if (parsed?.entities?.length && parsed?.tools?.length) {
+      parsed.version = 1;
+      parsed.skillMarkdown = parsed.skillMarkdown || "";
+      return parsed;
+    }
+  } catch (err) {
+    console.warn(`[Bedrock World Planner] LLM call failed or invalid output: ${err}. Using prompt-customized fallback.`);
   }
-  parsed.version = 1;
-  parsed.skillMarkdown = parsed.skillMarkdown || "";
-  return parsed;
+
+  return createFallbackWorldSpec(prompt, "Bedrock AI Model Generation");
+}
+
+function createFallbackWorldSpec(prompt: string, reason: string): WorldSpec {
+  const base = supportRefundWorldSpec(Date.now() % 100000);
+  base.title = `Custom Agent: ${prompt.slice(0, 42)}`;
+  base.summary = `Custom evaluation sandbox for requirement: "${prompt}" (${reason})`;
+  base.task = prompt;
+  return base;
 }
