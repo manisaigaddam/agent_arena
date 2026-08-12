@@ -6,13 +6,15 @@ export default function Landing() {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState<string | null>(null);
+  const [sentMsg, setSentMsg] = useState<string | null>(null);
+  const [magicUrl, setMagicUrl] = useState<string | null>(null);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    setSent(null);
+    setSentMsg(null);
+    setMagicUrl(null);
     try {
       const res = await fetch("/api/auth/magic", {
         method: "POST",
@@ -20,18 +22,17 @@ export default function Landing() {
         body: JSON.stringify({ email }),
       });
       const text = await res.text();
-      let data: { error?: string; message?: string } = {};
+      let data: { error?: string; message?: string; magicUrl?: string } = {};
       try {
         data = text ? JSON.parse(text) : {};
       } catch {
-        throw new Error(
-          text?.slice(0, 120) || `Bad response (${res.status})`,
-        );
+        throw new Error(text?.slice(0, 120) || `Server Error (${res.status})`);
       }
-      if (!res.ok) throw new Error(data.error || `send_failed (${res.status})`);
-      setSent(data.message || "Check your email for the magic link.");
+      if (!res.ok) throw new Error(data.error || `Failed to sign in (${res.status})`);
+      setSentMsg(data.message || "Check your email for access link.");
+      if (data.magicUrl) setMagicUrl(data.magicUrl);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "send_failed");
+      setError(err instanceof Error ? err.message : "Authentication request failed.");
     } finally {
       setBusy(false);
     }
@@ -40,24 +41,38 @@ export default function Landing() {
   return (
     <div className="landing">
       <header className="landing-nav">
-        <div className="brand">AgentArena</div>
-        <a href="#enter" className="ghost">
-          Enter arena
-        </a>
+        <div className="brand flex items-center gap-2">
+          <span className="brand-badge">🛡️</span>
+          <span>AgentArena</span>
+        </div>
+        <div className="nav-links">
+          <a href="#enter" className="ghost button-sm">
+            Access Console →
+          </a>
+        </div>
       </header>
 
       <section className="landing-hero">
-        <p className="eyebrow">WeMakeDevs × Zerops</p>
-        <h1 className="landing-title">AgentArena</h1>
+        <div className="eyebrow flex items-center justify-center gap-2">
+          <span className="pulse-dot"></span>
+          <span>Zerops PaaS Powered · Model Context Protocol (MCP)</span>
+        </div>
+        
+        <h1 className="landing-title">
+          Disposable MCP Sandboxes <br />
+          <span className="accent-text">& Real-Time AI Evaluator</span>
+        </h1>
+        
         <p className="landing-lead">
-          Disposable MCP worlds for your agents. Generate a sandbox, connect
-          over MCP, watch the live score update, then reset.
+          Test, attack, and score tool-using AI agents in zero-risk environments.
+          Spin up synthetic worlds, connect over MCP, track live security metrics, and reset instantly.
         </p>
+
         <div className="landing-cta" id="enter">
-          {!sent ? (
-            <form className="magic-form" onSubmit={(e) => void onSubmit(e)}>
-              <label htmlFor="email">
-                Email magic link — we verify by sending the link to your inbox
+          {!sentMsg ? (
+            <form className="magic-form glass-card" onSubmit={(e) => void onSubmit(e)}>
+              <label htmlFor="email" className="form-label">
+                Enter your email to launch or enter your workspace
               </label>
               <div className="magic-row">
                 <input
@@ -66,43 +81,61 @@ export default function Landing() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
+                  placeholder="developer@company.com"
+                  className="landing-input"
                 />
-                <button type="submit" disabled={busy}>
-                  {busy ? "Sending…" : "Email me a link"}
+                <button type="submit" disabled={busy} className="primary-btn">
+                  {busy ? "Authenticating…" : "Enter Workspace →"}
                 </button>
               </div>
-              {error && <div className="error">{error}</div>}
+              {error && <div className="error-banner">{error}</div>}
             </form>
           ) : (
-            <div className="magic-sent">
-              <p>{sent}</p>
+            <div className="magic-sent glass-card">
+              <p className="sent-title">⚡ {sentMsg}</p>
+              {magicUrl && (
+                <div className="magic-direct">
+                  <a href={magicUrl} className="primary-btn direct-link">
+                    🚀 Click Here to Enter Workspace Immediately
+                  </a>
+                </div>
+              )}
               <button
                 type="button"
-                className="ghost"
-                onClick={() => setSent(null)}
+                className="ghost mt-3"
+                onClick={() => {
+                  setSentMsg(null);
+                  setMagicUrl(null);
+                }}
               >
-                Use a different email
+                ← Try another email
               </button>
             </div>
           )}
         </div>
       </section>
 
-      <section className="landing-strip">
-        <div>
-          <strong>Worlds</strong>
-          <span>Template or prompt → tools, seed, skill.md</span>
+      <section className="landing-features grid-3">
+        <div className="feature-card glass-card">
+          <div className="feature-icon">🌐</div>
+          <h3>Synthetic World Planner</h3>
+          <p>Generate isolated relational databases, API endpoints, and seed state from natural language prompts.</p>
         </div>
-        <div>
-          <strong>MCP</strong>
-          <span>Per-sandbox token URL for Cursor / any agent</span>
+        <div className="feature-card glass-card">
+          <div className="feature-icon">🔌</div>
+          <h3>MCP Native Integration</h3>
+          <p>Connect Cursor, Claude Desktop, LangChain, or custom agent frameworks via SSE protocol.</p>
         </div>
-        <div>
-          <strong>Score</strong>
-          <span>Live requirements — no finalize step</span>
+        <div className="feature-card glass-card">
+          <div className="feature-icon">🛡️</div>
+          <h3>Real-Time Security Eval</h3>
+          <p>Evaluate prompt injection resistance, state accuracy, PII privacy leakage, and tool efficiency live.</p>
         </div>
       </section>
+
+      <footer className="landing-footer">
+        <span>AgentArena © 2026 · Built for Zerops Hackathon</span>
+      </footer>
     </div>
   );
 }

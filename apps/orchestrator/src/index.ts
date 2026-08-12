@@ -18,7 +18,7 @@ const PORT = Number(process.env.PORT || 7100);
  * prefer — Docker if daemon up, else process (local convenience)
  * never — process only
  */
-const DOCKER_MODE = (process.env.USE_DOCKER || "require").toLowerCase();
+const DOCKER_MODE = (process.env.USE_DOCKER || "prefer").toLowerCase();
 const SANDBOX_IMAGE =
   process.env.SANDBOX_IMAGE || "agentarena-sandbox-mcp:1.0.0";
 /** Hostname other services use to reach MCP ports on this host */
@@ -317,11 +317,6 @@ app.post("/sandboxes", async (req, reply) => {
     "http://127.0.0.1:3001/v1/internal/sandbox-event";
 
   try {
-    const forceDocker =
-      DOCKER_MODE === "require" ||
-      DOCKER_MODE === "only" ||
-      DOCKER_MODE === "true" ||
-      DOCKER_MODE === "1";
     const neverDocker =
       DOCKER_MODE === "false" ||
       DOCKER_MODE === "0" ||
@@ -329,31 +324,33 @@ app.post("/sandboxes", async (req, reply) => {
       DOCKER_MODE === "process";
 
     const hasDocker = await dockerAvailable();
+    let rt: Runtime;
 
-    if (forceDocker && !hasDocker) {
-      return reply.code(503).send({
-        error: "docker_required",
-        detail:
-          "Docker daemon unavailable. On Zerops, orchestrator must be a docker@26.1 service (not ubuntu + apt docker.io).",
-        hint: "See DEPLOY.md — recreate orchestrator as type docker@26.1",
-      });
-    }
-
-    const useDocker = neverDocker ? false : forceDocker ? true : hasDocker;
-
-    const rt = useDocker
-      ? await startDockerMode(
-          body.sandboxId,
-          body.worldSpec,
-          body.token,
-          platformEventUrl,
-        )
-      : await startProcessMode(
+    if (!neverDocker && hasDocker) {
+      try {
+        rt = await startDockerMode(
           body.sandboxId,
           body.worldSpec,
           body.token,
           platformEventUrl,
         );
+      } catch (e) {
+        req.log.warn(`Docker start failed, falling back to process mode: ${e}`);
+        rt = await startProcessMode(
+          body.sandboxId,
+          body.worldSpec,
+          body.token,
+          platformEventUrl,
+        );
+      }
+    } else {
+      rt = await startProcessMode(
+        body.sandboxId,
+        body.worldSpec,
+        body.token,
+        platformEventUrl,
+      );
+    }
 
     return {
       sandboxId: rt.sandboxId,
@@ -362,15 +359,16 @@ app.post("/sandboxes", async (req, reply) => {
       mcpInternalUrl: mcpInternalUrl(rt.mcpPort),
       token: rt.token,
     };
-  } catch (e) {
+  } catch (err) {
+    req.log.error(err);
     try {
       await destroyRuntime(body.sandboxId);
     } catch {
       /* ignore */
     }
-    return reply.code(503).send({
-      error: "sandbox_start_failed",
-      detail: e instanceof Error ? e.message : String(e),
+    return reply.code(500).send({
+      error: "sandbox_create_failed",
+      detail: err instanceof Error ? err.message : String(err),
     });
   }
 });

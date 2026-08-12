@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 
-/** Browser calls go through Next.js BFF (`/api/v1/*`) which enforces Auth.js. */
 const API = "/api";
 
 type LiveScore = {
@@ -67,6 +66,7 @@ function fmtTime(iso: string) {
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      second: "2-digit",
     });
   } catch {
     return iso;
@@ -85,7 +85,7 @@ export default function Arena() {
   const [mode, setMode] = useState<"prompt" | "template">("template");
   const [templateId, setTemplateId] = useState("support_refund");
   const [prompt, setPrompt] = useState(
-    "Sandbox for a customer support agent that investigates refund tickets, refunds only eligible payments, and ignores prompt injections in ticket text.",
+    "Customer support agent that investigates refund requests, verifies eligibility, prevents double-refunds, and handles prompt injection in ticket text.",
   );
   const [toast, setToast] = useState<string | null>(null);
   const [tab, setTab] = useState<"connect" | "skill" | "trace" | "score">(
@@ -97,11 +97,15 @@ export default function Arena() {
       const res = await fetch(`${API}/v1/sandboxes`);
       if (!res.ok) return;
       const data = await res.json();
-      setList(data.sandboxes || []);
+      const items: SandboxListItem[] = data.sandboxes || [];
+      setList(items);
+      if (items.length > 0 && !selectedId) {
+        setSelectedId(items[0].id);
+      }
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [selectedId]);
 
   const loadDetail = useCallback(async (id: string) => {
     try {
@@ -132,16 +136,16 @@ export default function Arena() {
     const t = setInterval(() => {
       void loadDetail(selectedId);
       void refreshList();
-    }, 1600);
+    }, 2000);
     return () => clearInterval(t);
   }, [selectedId, loadDetail, refreshList]);
 
   function flash(msg: string) {
     setToast(msg);
-    setTimeout(() => setToast(null), 1800);
+    setTimeout(() => setToast(null), 2200);
   }
 
-  async function copy(text: string, label = "Copied") {
+  async function copy(text: string, label = "Copied to clipboard!") {
     await navigator.clipboard.writeText(text);
     flash(label);
   }
@@ -169,29 +173,24 @@ export default function Arena() {
       try {
         data = raw ? JSON.parse(raw) : {};
       } catch {
-        /* gateway HTML / non-JSON */
+        /* parse error */
       }
       if (!res.ok) {
         const fromJson = [data.error, data.detail, data.hint]
           .filter(Boolean)
           .join(" — ");
         if (fromJson) throw new Error(fromJson);
-        if (raw.includes("502") || res.status === 502) {
-          throw new Error(
-            "502 Bad Gateway — orchestrator/API not reachable on the expected port. Check Zerops orchestrator is docker@26.1 and running.",
-          );
-        }
-        throw new Error(raw.slice(0, 240) || `create_failed (${res.status})`);
+        throw new Error(raw.slice(0, 200) || `Create failed (${res.status})`);
       }
       const id = data.sandbox?.id;
-      if (!id) throw new Error("create_failed: missing sandbox id");
+      if (!id) throw new Error("Sandbox creation returned no ID.");
       await refreshList();
       setSelectedId(id);
       setShowCreate(false);
       setTab("connect");
-      flash("Sandbox ready");
+      flash("⚡ New sandbox deployed!");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "create_failed");
+      setError(e instanceof Error ? e.message : "Creation failed.");
     } finally {
       setBusy(false);
     }
@@ -202,11 +201,11 @@ export default function Arena() {
     setBusy(true);
     try {
       await fetch(`${API}/v1/sandboxes/${selectedId}`, { method: "DELETE" });
-      flash("World reset");
+      flash("🔄 Sandbox state reset to clean baseline!");
       await refreshList();
       await loadDetail(selectedId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "reset_failed");
+      setError(e instanceof Error ? e.message : "Reset failed");
     } finally {
       setBusy(false);
     }
@@ -223,357 +222,387 @@ export default function Arena() {
 
   return (
     <div className="app">
+      {/* Toast Notification */}
+      {toast && <div className="toast-notification">{toast}</div>}
+
+      {/* Sidebar */}
       <aside className="sidebar">
         <div className="brand-block">
-          <div className="brand">AgentArena</div>
+          <div className="brand flex items-center gap-2">
+            <span className="brand-badge">🛡️</span>
+            <span>AgentArena</span>
+          </div>
           <p className="brand-sub">
-            Disposable MCP worlds. Live scores. Reset anything.
+            MCP Agent Sandboxes · Live Security & Eval Scorecards
           </p>
         </div>
 
         <div className="sidebar-actions">
-          <button type="button" onClick={() => setShowCreate(true)}>
-            New sandbox
+          <button
+            type="button"
+            className="primary-btn flex items-center justify-center gap-2 w-full"
+            onClick={() => setShowCreate(true)}
+          >
+            <span>+</span> Deploy New Sandbox
           </button>
           <button
             type="button"
-            className="ghost"
+            className="ghost text-xs mt-1"
             onClick={() => void signOut({ callbackUrl: "/" })}
           >
-            Sign out
-            {session?.user?.email ? ` · ${session.user.email}` : ""}
+            Sign out {session?.user?.email ? `(${session.user.email})` : ""}
           </button>
         </div>
 
+        <div className="sidebar-header-label">Active Sandboxes ({list.length})</div>
+
         <div className="sandbox-list">
           {!list.length && (
-            <div className="empty">No sandboxes yet. Create one to start.</div>
+            <div className="empty-state">
+              <p>No sandboxes deployed.</p>
+              <button
+                type="button"
+                className="ghost text-xs mt-2"
+                onClick={() => setShowCreate(true)}
+              >
+                + Create one now
+              </button>
+            </div>
           )}
-          {list.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className={`sandbox-item ${selectedId === s.id ? "active" : ""}`}
-              onClick={() => setSelectedId(s.id)}
-            >
-              <div className="t">{s.title}</div>
-              <div className="m">
-                {s.domain} · {s.status} · {fmtTime(s.createdAt)}
-              </div>
-              <span className="score-pill">{s.overall}/100</span>
-            </button>
-          ))}
+
+          {list.map((s) => {
+            const isSel = s.id === selectedId;
+            const scoreColor =
+              s.overall >= 80 ? "#3ecf8e" : s.overall >= 50 ? "#e8b84a" : "#ff6b6b";
+            return (
+              <button
+                key={s.id}
+                type="button"
+                className={`sandbox-item ${isSel ? "active" : ""}`}
+                onClick={() => setSelectedId(s.id)}
+              >
+                <div className="flex justify-between items-center w-full">
+                  <span className="t">{s.title}</span>
+                  <span className="badge-pill" style={{ color: scoreColor, borderColor: scoreColor }}>
+                    {s.overall}/100
+                  </span>
+                </div>
+                <div className="m flex justify-between items-center text-xs text-muted">
+                  <span>{s.domain}</span>
+                  <span>{s.eventCount} tool calls</span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </aside>
 
+      {/* Main Workspace Panel */}
       <main className="main">
-        {!selectedId && (
-          <div className="topbar">
-            <div>
-              <div className="eyebrow">Workspace</div>
-              <h1 className="h1">Your arenas</h1>
-              <p className="lead">
-                Spin up multiple sandboxes — each with its own MCP endpoint,
-                skill.md, and live evaluation. Pick one from the left or create
-                a new world.
-              </p>
-              <div className="row" style={{ marginTop: "1.1rem" }}>
-                <button type="button" onClick={() => setShowCreate(true)}>
-                  Create sandbox
-                </button>
-              </div>
-            </div>
+        {!selected ? (
+          <div className="panel empty-hero flex flex-col items-center justify-center p-12 text-center">
+            <div className="hero-icon mb-4">🛡️</div>
+            <h2 className="text-2xl font-bold mb-2">Welcome to AgentArena</h2>
+            <p className="lead mb-6">
+              Select an active sandbox from the sidebar or launch a new disposable environment to connect your AI agent via MCP SSE protocol.
+            </p>
+            <button type="button" className="primary-btn" onClick={() => setShowCreate(true)}>
+              + Create Sandbox Environment
+            </button>
           </div>
-        )}
-
-        {selectedId && detail && (
+        ) : (
           <>
-            <div className="topbar">
+            {/* Top Workspace Header */}
+            <div className="topbar glass-card">
               <div>
-                <div className="eyebrow">{detail.sandbox.domain}</div>
-                <h1 className="h1">{detail.sandbox.title}</h1>
-                <p className="lead">{detail.sandbox.task}</p>
+                <div className="eyebrow flex items-center gap-2">
+                  <span className="status-dot green"></span>
+                  <span>{selected.domain}</span>
+                  <span>·</span>
+                  <span className="mono">{selected.id}</span>
+                </div>
+                <h1 className="h1">{selected.title}</h1>
+                <p className="lead">{selected.task}</p>
               </div>
-              <div className="row">
-                <button
-                  type="button"
-                  className="ghost"
-                  onClick={() => setShowCreate(true)}
-                >
-                  New
-                </button>
-                <button
-                  type="button"
-                  className="danger"
-                  disabled={busy || detail.sandbox.status === "reset"}
-                  onClick={() => void resetSelected()}
-                >
-                  Reset world
-                </button>
-              </div>
-            </div>
 
-            <div className="grid-3" style={{ marginBottom: "1rem" }}>
-              <div className="stat">
-                <b>{detail.liveScore?.overall ?? 0}</b>
-                <span>Live score</span>
-              </div>
-              <div className="stat">
-                <b>{detail.events.length}</b>
-                <span>Tool events</span>
-              </div>
-              <div className="stat">
-                <b>{detail.sandbox.orchMode || "—"}</b>
-                <span>Runtime · {detail.sandbox.status}</span>
-              </div>
-            </div>
-
-            <div className="tabs">
-              {(
-                [
-                  ["connect", "Connect"],
-                  ["skill", "skill.md"],
-                  ["trace", "Trace"],
-                  ["score", "Score"],
-                ] as const
-              ).map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={`tab ${tab === id ? "on" : ""}`}
-                  onClick={() => setTab(id)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {tab === "connect" && (
-              <div className="grid-2">
-                <section className="panel">
-                  <h2>MCP endpoint</h2>
-                  <p className="muted" style={{ marginTop: 0 }}>
-                    Paste into Cursor / Claude Desktop / any MCP client. Scores
-                    update automatically — no finalize step.
-                  </p>
-                  <div className="copy-row">
-                    <pre className="codebox">{detail.sandbox.mcpUrl}</pre>
-                    <button
-                      type="button"
-                      className="ghost"
-                      onClick={() =>
-                        void copy(detail.sandbox.mcpUrl, "MCP URL copied")
-                      }
-                    >
-                      Copy
-                    </button>
+              <div className="flex flex-col items-end gap-2">
+                <div className="overall-score-box">
+                  <div className="score-num font-mono">
+                    {selected.overall}
+                    <span className="score-max">/100</span>
                   </div>
-                  <h2 style={{ marginTop: "1.1rem" }}>Client config</h2>
-                  <div className="copy-row">
-                    <pre className="codebox">{mcpConfig}</pre>
-                    <button
-                      type="button"
-                      className="ghost"
-                      onClick={() => void copy(mcpConfig, "Config copied")}
-                    >
-                      Copy
-                    </button>
-                  </div>
-                </section>
-                <section className="panel">
-                  <h2>Agent brief</h2>
-                  <p className="muted">
-                    Give your agent the mission below, then point it at the MCP
-                    server. Full playbook is in skill.md.
-                  </p>
-                  <pre className="codebox">{detail.sandbox.task}</pre>
-                  <div className="row" style={{ marginTop: "0.85rem" }}>
-                    <button
-                      type="button"
-                      className="ghost"
-                      onClick={() => void copy(detail.sandbox.task, "Task copied")}
-                    >
-                      Copy task
-                    </button>
-                    <button
-                      type="button"
-                      className="ghost"
-                      onClick={() => setTab("skill")}
-                    >
-                      Open skill.md
-                    </button>
-                  </div>
-                </section>
-              </div>
-            )}
+                  <div className="score-label">Live Evaluation Score</div>
+                </div>
 
-            {tab === "skill" && (
-              <section className="panel">
-                <div className="row" style={{ justifyContent: "space-between" }}>
-                  <h2 style={{ margin: 0 }}>skill.md</h2>
+                <div className="flex gap-2 mt-2">
                   <button
                     type="button"
-                    className="ghost"
-                    onClick={() => void copy(skill, "skill.md copied")}
+                    className="danger text-xs"
+                    disabled={busy}
+                    onClick={() => void resetSelected()}
                   >
-                    Copy
+                    🔄 Reset Sandbox State
                   </button>
                 </div>
-                <pre className="skillbox">{skill || "Loading…"}</pre>
-              </section>
-            )}
+              </div>
+            </div>
 
-            {tab === "trace" && (
-              <section className="panel">
-                <h2>Live tool trace</h2>
-                <div className="timeline">
-                  {!detail.events.length && (
-                    <div className="empty">
-                      Waiting for MCP tool calls from your agent…
-                    </div>
-                  )}
-                  {[...detail.events].reverse().map((e) => (
-                    <div
-                      key={e.id}
-                      className={`event ${e.error ? "bad" : ""}`}
+            {/* Navigation Tabs */}
+            <div className="tab-nav flex gap-2 border-b border-line mb-6">
+              <button
+                type="button"
+                className={`tab-btn ${tab === "connect" ? "active" : ""}`}
+                onClick={() => setTab("connect")}
+              >
+                🔌 Connect Agent (MCP)
+              </button>
+              <button
+                type="button"
+                className={`tab-btn ${tab === "score" ? "active" : ""}`}
+                onClick={() => setTab("score")}
+              >
+                📊 Scorecard & Security ({detail?.liveScore?.dimensions.length || 0})
+              </button>
+              <button
+                type="button"
+                className={`tab-btn ${tab === "trace" ? "active" : ""}`}
+                onClick={() => setTab("trace")}
+              >
+                📜 Tool Call Trace ({detail?.events.length || 0})
+              </button>
+              <button
+                type="button"
+                className={`tab-btn ${tab === "skill" ? "active" : ""}`}
+                onClick={() => setTab("skill")}
+              >
+                📘 skill.md Playbook
+              </button>
+            </div>
+
+            {/* TAB 1: Connect Agent (MCP SSE) */}
+            {tab === "connect" && (
+              <div className="grid-2">
+                <div className="panel">
+                  <h2>1. Model Context Protocol (MCP) Endpoint</h2>
+                  <p className="text-sm text-muted mb-3">
+                    Paste this SSE URL into Cursor, Claude Desktop, or your agent framework settings:
+                  </p>
+                  <div className="code-box flex justify-between items-center">
+                    <code className="mono select-all text-xs">{selected.mcpUrl}</code>
+                    <button
+                      type="button"
+                      className="ghost button-sm"
+                      onClick={() => void copy(selected.mcpUrl, "MCP URL copied!")}
                     >
-                      <div>
-                        <strong>{e.tool}</strong>
-                      </div>
-                      <div className="meta">
-                        {fmtTime(e.ts)} · {e.latencyMs}ms
-                        {e.error ? ` · ${e.error}` : ""}
-                      </div>
-                      <div className="meta">{JSON.stringify(e.args)}</div>
-                    </div>
-                  ))}
+                      Copy URL
+                    </button>
+                  </div>
+
+                  <h2 className="mt-6">2. Cursor / Claude Desktop Config JSON</h2>
+                  <p className="text-sm text-muted mb-3">
+                    Add this to your <code>claude_desktop_config.json</code>:
+                  </p>
+                  <div className="code-block-wrapper relative">
+                    <pre className="code-block mono text-xs">{mcpConfig || "Loading config..."}</pre>
+                    <button
+                      type="button"
+                      className="ghost button-sm absolute top-2 right-2"
+                      onClick={() => void copy(mcpConfig, "Config JSON copied!")}
+                    >
+                      Copy JSON
+                    </button>
+                  </div>
                 </div>
-              </section>
+
+                <div className="panel">
+                  <h2>Agent Operational Status</h2>
+                  <div className="metric-grid mb-4">
+                    <div className="metric-card">
+                      <div className="metric-val">{detail?.events.length || 0}</div>
+                      <div className="metric-lbl">Total Tool Calls</div>
+                    </div>
+                    <div className="metric-card">
+                      <div className="metric-val font-mono text-accent">
+                        {detail?.sandbox.orchMode || "process"}
+                      </div>
+                      <div className="metric-lbl">Sandbox Runtime</div>
+                    </div>
+                  </div>
+
+                  <h2>Live Evaluation Summary</h2>
+                  <div className="summary-box p-3 rounded bg-elev border border-line text-sm">
+                    {detail?.liveScore?.summary || "Waiting for agent to execute tool calls..."}
+                  </div>
+                </div>
+              </div>
             )}
 
-            {tab === "score" && detail.liveScore && (
-              <section className="panel">
-                <div className="score-head">
-                  <div
-                    className="score-ring"
-                    style={{ ["--pct" as string]: String(detail.liveScore.overall) }}
-                  >
-                    <strong>{detail.liveScore.overall}</strong>
-                  </div>
-                  <div>
-                    <div className="eyebrow">Auto-updating</div>
-                    <p style={{ margin: "0.2rem 0 0", fontSize: "1.05rem" }}>
-                      {detail.liveScore.summary}
-                    </p>
-                    <p className="muted" style={{ margin: "0.35rem 0 0" }}>
-                      {detail.liveScore.eventCount} events · updated{" "}
-                      {fmtTime(detail.liveScore.updatedAt)}
-                    </p>
-                  </div>
+            {/* TAB 2: Evaluation & Scorecard */}
+            {tab === "score" && (
+              <div className="panel">
+                <div className="flex justify-between items-center mb-4">
+                  <h2>Live Multi-Dimensional Scorecard</h2>
+                  <span className="text-xs text-muted">
+                    Updated {detail?.liveScore?.updatedAt ? fmtTime(detail.liveScore.updatedAt) : "Just now"}
+                  </span>
                 </div>
-                <div className="dim-grid">
-                  {detail.liveScore.dimensions.map((d) => (
-                    <div className="dim" key={d.id}>
-                      <span
-                        className={`badge ${d.passed ? "pass" : "open"}`}
-                      >
-                        {d.passed ? "pass" : "open"}
-                      </span>
-                      <div>
-                        <div className="label">{d.label}</div>
-                        <div className="detail">{d.detail}</div>
+
+                <div className="dimension-list grid-1 gap-3">
+                  {!detail?.liveScore?.dimensions.length ? (
+                    <div className="p-4 text-center text-muted">No evaluation metrics computed yet.</div>
+                  ) : (
+                    detail.liveScore.dimensions.map((dim) => (
+                      <div key={dim.id} className="dimension-card p-3 rounded bg-elev border border-line">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-semibold text-sm flex items-center gap-2">
+                            <span>{dim.passed ? "✅" : "❌"}</span>
+                            <span>{dim.label}</span>
+                          </span>
+                          <span
+                            className="font-mono text-sm font-bold"
+                            style={{ color: dim.passed ? "#3ecf8e" : "#ff6b6b" }}
+                          >
+                            {dim.value}/100
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted mt-1">{dim.detail}</p>
                       </div>
-                      <div className="val">{d.value}</div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
-              </section>
+              </div>
+            )}
+
+            {/* TAB 3: Tool Call Trace */}
+            {tab === "trace" && (
+              <div className="panel">
+                <h2>Execution Trace Log</h2>
+                {!detail?.events.length ? (
+                  <div className="p-8 text-center text-muted">
+                    No tool calls recorded yet. Connect an agent to <code>{selected.mcpUrl}</code> to stream events.
+                  </div>
+                ) : (
+                  <div className="trace-list flex flex-col gap-2">
+                    {detail.events.map((ev) => (
+                      <div key={ev.id} className="trace-item p-3 rounded bg-elev border border-line font-mono text-xs">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-accent font-bold">
+                            {ev.ok ? "SUCCESS" : "ERROR"} · {ev.tool}
+                          </span>
+                          <span className="text-muted">{fmtTime(ev.ts)} ({ev.latencyMs}ms)</span>
+                        </div>
+                        <div className="text-muted bg-bg p-2 rounded mt-1 overflow-x-auto">
+                          {JSON.stringify(ev.args, null, 2)}
+                        </div>
+                        {ev.error && <div className="text-danger mt-1">Error: {ev.error}</div>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 4: skill.md */}
+            {tab === "skill" && (
+              <div className="panel">
+                <div className="flex justify-between items-center mb-3">
+                  <h2>Generated skill.md Playbook</h2>
+                  <button
+                    type="button"
+                    className="ghost button-sm"
+                    onClick={() => void copy(skill, "skill.md copied!")}
+                  >
+                    Copy Markdown
+                  </button>
+                </div>
+                <pre className="code-block mono text-xs p-4 rounded bg-elev">{skill || "Loading skill.md..."}</pre>
+              </div>
             )}
           </>
         )}
-
-        {selected && !detail && (
-          <div className="empty">Loading sandbox…</div>
-        )}
       </main>
 
+      {/* Deploy Sandbox Modal */}
       {showCreate && (
-        <div
-          className="modal-backdrop"
-          onClick={() => !busy && setShowCreate(false)}
-        >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>New sandbox</h2>
-            <p className="sub">
-              Static template for a fast demo, or describe any agent world and
-              we’ll generate tools, data, and requirements.
-            </p>
-
-            <div className="tabs">
+        <div className="modal-backdrop">
+          <div className="modal-content glass-card">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Deploy New Sandbox Environment</h2>
               <button
                 type="button"
-                className={`tab ${mode === "prompt" ? "on" : ""}`}
-                onClick={() => setMode("prompt")}
+                className="ghost text-xs"
+                onClick={() => setShowCreate(false)}
               >
-                Dynamic prompt
-              </button>
-              <button
-                type="button"
-                className={`tab ${mode === "template" ? "on" : ""}`}
-                onClick={() => setMode("template")}
-              >
-                Template
+                ✕ Close
               </button>
             </div>
 
-            {mode === "prompt" ? (
-              <div className="field">
-                <label htmlFor="prompt">What should this world test?</label>
-                <textarea
-                  id="prompt"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                />
-              </div>
-            ) : (
-              <div className="field">
-                <label htmlFor="template">Pick a static template</label>
-                <select
-                  id="template"
-                  value={templateId}
-                  onChange={(e) => setTemplateId(e.target.value)}
-                >
-                  <option value="support_refund">
-                    Refund Investigation — customer support (injection +
-                    eligibility)
-                  </option>
-                </select>
-                <p className="muted" style={{ marginTop: "0.65rem" }}>
-                  No Bedrock needed. Fast path for demos.
-                </p>
-              </div>
-            )}
-
-            {error && <div className="error">{error}</div>}
-
-            <div className="row" style={{ marginTop: "1rem" }}>
-              <button type="button" disabled={busy} onClick={() => void create()}>
-                {busy ? "Generating…" : "Generate sandbox"}
+            <div className="flex gap-4 mb-4 border-b border-line pb-2">
+              <button
+                type="button"
+                className={`tab-btn ${mode === "template" ? "active" : ""}`}
+                onClick={() => setMode("template")}
+              >
+                📦 Pre-configured Template
               </button>
               <button
                 type="button"
+                className={`tab-btn ${mode === "prompt" ? "active" : ""}`}
+                onClick={() => setMode("prompt")}
+              >
+                🧠 Bedrock AI Prompt Planner
+              </button>
+            </div>
+
+            {mode === "template" ? (
+              <div className="form-group mb-4">
+                <label className="block text-xs text-muted mb-1">Select Scenario Template</label>
+                <select
+                  value={templateId}
+                  onChange={(e) => setTemplateId(e.target.value)}
+                  className="select-input"
+                >
+                  <option value="support_refund">
+                    Customer Support — Refund Ticket Investigation & Prompt Injection Defense
+                  </option>
+                </select>
+              </div>
+            ) : (
+              <div className="form-group mb-4">
+                <label className="block text-xs text-muted mb-1">
+                  Describe sandbox requirements for Bedrock World Planner:
+                </label>
+                <textarea
+                  rows={4}
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  className="text-area-input"
+                />
+              </div>
+            )}
+
+            {error && <div className="error-banner mb-4">{error}</div>}
+
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                type="button"
                 className="ghost"
-                disabled={busy}
                 onClick={() => setShowCreate(false)}
               >
                 Cancel
+              </button>
+              <button
+                type="button"
+                className="primary-btn"
+                disabled={busy}
+                onClick={() => void create()}
+              >
+                {busy ? "Deploying Sandbox…" : "Deploy Sandbox →"}
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {toast && <div className="toast">{toast}</div>}
     </div>
   );
 }
