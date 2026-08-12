@@ -38,12 +38,13 @@ export interface Scenario {
   id: string;
   name: string;
   templateKey: string;
-  difficulty: "easy" | "medium" | "hard";
+  difficulty: "easy" | "medium" | "hard" | "adversarial";
   taskPrompt: string;
   worldSpec: LegacySeedSpec;
   injections: ScenarioInjections;
   tools: ToolDef[];
 }
+
 
 export interface Sandbox {
   id: string;
@@ -196,13 +197,6 @@ export interface LiveDimension {
   detail: string;
 }
 
-export interface LiveScore {
-  overall: number;
-  summary: string;
-  eventCount: number;
-  updatedAt: string;
-  dimensions: LiveDimension[];
-}
 
 export interface GroundTruth {
   unresolvedTicketIds: string[];
