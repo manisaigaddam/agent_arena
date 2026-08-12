@@ -1,0 +1,26 @@
+services:
+  - hostname: api
+    type: ubuntu@24.04
+    mode: NON_HA
+    enableSubdomainAccess: true
+    minContainers: 1
+    maxContainers: 1
+  - hostname: gateway
+    type: ubuntu@24.04
+    mode: NON_HA
+    enableSubdomainAccess: true
+    minContainers: 1
+    maxContainers: 1
+  - hostname: web
+    type: ubuntu@24.04
+    mode: NON_HA
+    enableSubdomainAccess: true
+    minContainers: 1
+    maxContainers: 1
+  # Prefer docker@26.1.5 when your org catalog has it (docs.zerops.io/docker).
+  # This org currently rejects docker@* (serviceStackTypeNotFound) — use ubuntu + boot.sh / DOCKER_HOST.
+  - hostname: orchestrator
+    type: ubuntu@24.04
+    mode: NON_HA
+    minContainers: 1
+    maxContainers: 1

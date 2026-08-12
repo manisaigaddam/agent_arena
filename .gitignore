@@ -1,0 +1,12 @@
+node_modules
+.turbo
+dist
+.next
+.env
+.env.local
+infra/env-import.yml
+*.log
+.DS_Store
+coverage
+.data
+.sandboxes

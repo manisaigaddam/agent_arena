@@ -1,0 +1,14 @@
+services:
+  mcp:
+    build: ./mcp
+    ports:
+      - "${MCP_HOST_PORT}:3002"
+    environment:
+      SANDBOX_ID: ${SANDBOX_ID}
+      SANDBOX_TOKEN: ${SANDBOX_TOKEN}
+      PLATFORM_EVENT_URL: ${PLATFORM_EVENT_URL}
+      WORLD_DIR: /world
+      DATA_DIR: /data
+    volumes:
+      - ./world:/world:ro
+      - ./data:/data

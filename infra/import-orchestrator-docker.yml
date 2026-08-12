@@ -1,0 +1,13 @@
+# Use when Zerops org catalog includes Docker VM stacks.
+# Tried on this project: docker@26.1 / 26.1.5 / 27 → serviceStackTypeNotFound.
+# Recipe uses: type: docker@26.1.5  (https://github.com/zeropsio/recipe-docker)
+services:
+  - hostname: orchestrator
+    type: docker@26.1.5
+    mode: NON_HA
+    minContainers: 1
+    maxContainers: 1
+    verticalAutoscaling:
+      cpu: 2
+      ram: 4
+      disk: 20

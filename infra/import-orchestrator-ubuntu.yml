@@ -1,0 +1,15 @@
+services:
+  - hostname: orchestrator
+    type: ubuntu@24.04
+    mode: NON_HA
+    minContainers: 1
+    maxContainers: 1
+    # docker.io + dockerd need headroom (prior deploy OOM'd at ~0.12GB grant)
+    verticalAutoscaling:
+      minCpu: 1
+      maxCpu: 2
+      cpuMode: SHARED
+      minRam: 2
+      maxRam: 6
+      minDisk: 10
+      maxDisk: 30

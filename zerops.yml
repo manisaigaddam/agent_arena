@@ -1,0 +1,110 @@
+zerops:
+  - setup: web
+    build:
+      base: ubuntu@24.04
+      prepareCommands:
+        - sudo apt-get update
+        - sudo apt-get install -y curl ca-certificates gnupg
+        - curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+        - sudo apt-get install -y nodejs
+        - sudo npm i -g pnpm@9
+      buildCommands:
+        - pnpm i
+        - pnpm --filter @agentarena/web build
+      deployFiles: ./
+    run:
+      base: ubuntu@24.04
+      prepareCommands:
+        - sudo apt-get update
+        - sudo apt-get install -y curl ca-certificates gnupg
+        - curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+        - sudo apt-get install -y nodejs
+        - sudo npm i -g pnpm@9
+      ports:
+        - port: 3000
+          httpSupport: true
+      start: pnpm --filter @agentarena/web start
+
+  - setup: api
+    build:
+      base: ubuntu@24.04
+      prepareCommands:
+        - sudo apt-get update
+        - sudo apt-get install -y curl ca-certificates gnupg
+        - curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+        - sudo apt-get install -y nodejs
+        - sudo npm i -g pnpm@9
+      buildCommands:
+        - pnpm i
+        - pnpm --filter @agentarena/shared build
+        - pnpm --filter @agentarena/llm build
+        - pnpm --filter @agentarena/world build
+        - pnpm --filter @agentarena/eval build
+        - pnpm --filter @agentarena/api build
+      deployFiles: ./
+    run:
+      base: ubuntu@24.04
+      prepareCommands:
+        - sudo apt-get update
+        - sudo apt-get install -y curl ca-certificates gnupg
+        - curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+        - sudo apt-get install -y nodejs
+      ports:
+        - port: 3001
+          httpSupport: true
+      start: node apps/api/dist/server.js
+
+  - setup: gateway
+    build:
+      base: ubuntu@24.04
+      prepareCommands:
+        - sudo apt-get update
+        - sudo apt-get install -y curl ca-certificates gnupg
+        - curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+        - sudo apt-get install -y nodejs
+        - sudo npm i -g pnpm@9
+      buildCommands:
+        - pnpm i
+        - pnpm --filter @agentarena/gateway build
+      deployFiles: ./
+    run:
+      base: ubuntu@24.04
+      prepareCommands:
+        - sudo apt-get update
+        - sudo apt-get install -y curl ca-certificates gnupg
+        - curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+        - sudo apt-get install -y nodejs
+      ports:
+        - port: 3002
+          httpSupport: true
+      start: node apps/gateway/dist/index.js
+
+  # Docker-only sandboxes. Ideal: Zerops docker@26.1.5 VM (docs.zerops.io/docker).
+  # This org's catalog has no docker@* — ubuntu + boot.sh tries nested dockerd;
+  # otherwise set DOCKER_HOST to a remote Docker daemon (still Docker isolation).
+  - setup: orchestrator
+    build:
+      base: ubuntu@24.04
+      prepareCommands:
+        - sudo apt-get update
+        - sudo apt-get install -y curl ca-certificates gnupg
+        - curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+        - sudo apt-get install -y nodejs
+        - sudo npm i -g pnpm@9
+      buildCommands:
+        - pnpm i
+        - pnpm --filter @agentarena/orchestrator build
+      deployFiles: ./
+      addToRunPrepare:
+        - ./sandbox/mcp
+    run:
+      base: ubuntu@24.04
+      prepareCommands:
+        - sudo apt-get update
+        - sudo apt-get install -y curl ca-certificates gnupg iptables uidmap
+        - curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+        - sudo apt-get install -y nodejs docker.io
+      ports:
+        - port: 7100
+          httpSupport: true
+      start: node apps/orchestrator/boot.mjs

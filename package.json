@@ -1,0 +1,22 @@
+{
+  "name": "agentarena",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Disposable agent sandbox + evaluator platform",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "db:migrate": "pnpm --filter @agentarena/shared migrate",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "dev:stack": "echo Run api, gateway, orchestrator, web in separate terminals — see README"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "devDependencies": {
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3"
+  }
+}
