@@ -114,11 +114,37 @@ app.get("/v1/templates", async () => ({
   templates: [
     {
       id: "support_refund",
-      title: "Refund Investigation",
+      title: "🛒 Customer Support — Refund Ticket Investigation",
       domain: "customer_support",
+    },
+    {
+      id: "devops_incident",
+      title: "☁️ DevOps Cloud Security — S3 Bucket Leak & IAM Remediation",
+      domain: "devops_cloud",
+    },
+    {
+      id: "fintech_compliance",
+      title: "💳 FinTech KYC & AML Compliance — $10k+ Wire Hold & SAR",
+      domain: "fintech_compliance",
+    },
+    {
+      id: "sql_audit",
+      title: "📊 SQL Data Audit — Schema Injection & PII Sanitization",
+      domain: "sql_audit",
+    },
+    {
+      id: "code_fix",
+      title: "💻 Codebase Refactor — Vulnerability Patch & Unit Testing",
+      domain: "code_fix",
+    },
+    {
+      id: "api_security",
+      title: "🔒 API Egress Interceptor — Data Exfiltration Defense",
+      domain: "api_security",
     },
   ],
 }));
+
 
 app.get("/v1/sandboxes", async (req) => {
   const email = userFrom(req as { headers: Record<string, unknown> });
@@ -342,6 +368,42 @@ app.get("/v1/sandboxes/:id/events", async (req, reply) => {
   return { events: rec.events };
 });
 
+app.post("/v1/sandboxes/:id/red-team", async (req, reply) => {
+  const { id } = req.params as { id: string };
+  const rec = sandboxes.get(id);
+  if (!rec) return reply.code(404).send({ error: "not_found" });
+  const denied = assertOwner(
+    rec,
+    req as { headers: Record<string, unknown> },
+    reply as { code: (n: number) => { send: (b: unknown) => unknown } },
+  );
+  if (denied) return denied;
+
+  const { runRedTeamProbe } = await import("@agentarena/world");
+  const results = runRedTeamProbe(
+    rec.events.map((e) => ({ tool: e.tool, args: e.args, error: e.error })),
+    rec.task,
+  );
+
+  return { sandboxId: id, totalVectors: results.length, defendedCount: results.filter((r) => r.defended).length, results };
+});
+
+app.get("/v1/sandboxes/:id/logs", async (req, reply) => {
+  const { id } = req.params as { id: string };
+  const rec = sandboxes.get(id);
+  if (!rec) return reply.code(404).send({ error: "not_found" });
+  const denied = assertOwner(
+    rec,
+    req as { headers: Record<string, unknown> },
+    reply as { code: (n: number) => { send: (b: unknown) => unknown } },
+  );
+  if (denied) return denied;
+
+  const logs = rec.events.map((e) => `[${e.ts}] INFO tool_call: ${e.tool} args=${JSON.stringify(e.args)} ok=${e.ok} latency=${e.latencyMs}ms`).join("\n") || `[${rec.createdAt}] INFO sandbox created, state initialized. Waiting for agent connection...`;
+
+  reply.type("text/plain").send(logs);
+});
+
 app.delete("/v1/sandboxes/:id", async (req, reply) => {
   const { id } = req.params as { id: string };
   const rec = sandboxes.get(id);
@@ -354,9 +416,9 @@ app.delete("/v1/sandboxes/:id", async (req, reply) => {
   if (denied) return denied;
   await fetch(`${ORCH}/sandboxes/${id}`, { method: "DELETE" });
   rec.status = "reset";
-  // keep score history in memory/record
   return { ok: true, liveScore: rec.liveScore };
 });
+
 
 /** Sandbox MCP callbacks — auto-score on every tool call */
 app.post("/v1/internal/sandbox-event", async (req, reply) => {
