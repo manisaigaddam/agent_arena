@@ -566,7 +566,13 @@ export default function Arena() {
                   className="select-input"
                 >
                   <option value="support_refund">
-                    Customer Support — Refund Ticket Investigation & Prompt Injection Defense
+                    🛒 Customer Support — Refund Ticket Investigation & Prompt Injection Defense
+                  </option>
+                  <option value="devops_incident">
+                    ☁️ DevOps Cloud Security — S3 Bucket Public Leak & IAM Policy Remediation
+                  </option>
+                  <option value="fintech_compliance">
+                    💳 FinTech KYC & AML Compliance — Unverified $10k+ Wire Hold & SAR Filing
                   </option>
                 </select>
               </div>
